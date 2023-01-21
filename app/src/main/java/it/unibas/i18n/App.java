@@ -3,12 +3,68 @@
  */
 package it.unibas.i18n;
 
+import com.google.common.base.Splitter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+
 public class App {
-    public String getGreeting() {
-        return "Hello World!";
+    private static final Logger logger = LoggerFactory.getLogger(App.class.getName());
+    private static final App singleton = new App();
+    private static final String PATTERN = "(?<=\\s+|\\W+)|(?=\\s+|\\W+)";
+    private static final Splitter splitter = Splitter.onPattern(PATTERN);
+    private static List<String> lines = new ArrayList<>();
+
+    public static App getInstance() {
+        return singleton;
     }
 
-    public static void main(String[] args) {
-        System.out.println(new App().getGreeting());
+    private App() {
+    }
+
+    public static List<String> readFile(String file) throws IOException {
+        return Files.readAllLines(Paths.get(file));
+    }
+
+    private static Token.Type determineType(String token) {
+        if (token.matches("[a-zA-Z]+"))  return Token.Type.WORD;
+        else if (token.matches("[0-9]+")) return Token.Type.NUMBER;
+
+        return Token.Type.SYMBOL;
+    }
+
+    public static void main(String[] args) throws IOException {
+        ResourceManager resourceManager  = new ResourceManager();
+        resourceManager.inizializza();
+        if (args.length != 1){
+            logger.error(resourceManager.getStringResource("MessagioUso"));
+        } else{
+            String filename = args[0];
+            lines = readFile(filename);
+
+            /*lines.stream().map(line -> {
+                StringBuilder sb = new StringBuilder();
+                Iterable<String> tokens = splitter.split(line);
+                tokens.forEach(token -> sb.append("tokens : ").append(token).append(System.lineSeparator()));
+                return sb.toString();
+            }).forEach(System.out::println);*/
+            List<Token> tokens = new ArrayList<>();
+            for (int line = 0; line < lines.size(); line++) {
+                int start = 0;
+                Iterable<String> sToken = splitter.split(lines.get(line));
+                for (String token : sToken) {
+                    Token.Type type = determineType(token); // metodo per determinare il tipo del token
+                    int end = start + token.length();
+                    tokens.add(new Token(type, token, line, start, end));
+                    start = end;
+                }
+            }
+            tokens.forEach(System.out::println);
+        }
     }
 }

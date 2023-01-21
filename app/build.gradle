@@ -15,11 +15,19 @@ repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
 }
+//sourceSets {
+//    main {
+//        resources {
+//            srcDir '.\\app\\resources'
+//            include '**/*.txt'
+//        }
+//    }
+//}
 
 dependencies {
     implementation 'org.slf4j:slf4j-api:1.7.30'
-    runtimeOnly 'ch.qos.logback:logback-classic:1.2.3'
-    runtimeOnly 'ch.qos.logback:logback-core:1.2.3'
+    runtimeOnly 'ch.qos.logback:logback-classic:1.2.11'
+    runtimeOnly 'ch.qos.logback:logback-core:1.2.11'
     // Use JUnit Jupiter for testing.
     testImplementation 'org.junit.jupiter:junit-jupiter:5.9.1'
 
@@ -35,4 +43,20 @@ application {
 tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
+}
+
+task run1(type: JavaExec) {
+    mainClass = 'it.unibas.i18n.App'
+    classpath = sourceSets.main.runtimeClasspath
+    args = ['resources/testo.txt']
+}
+
+task run2(type: JavaExec){
+    mainClass = 'it.unibas.i18n.App'
+    classpath = sourceSets.main.runtimeClasspath
+    args = ['resources/testo1.txt']
+}
+
+task runAll() {
+    dependsOn 'run1', 'run2'
 }
