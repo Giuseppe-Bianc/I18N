@@ -1,7 +1,7 @@
 <configuration scan="true">
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%highlight(%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n)</pattern>
+            <pattern>%highlight([%d{HH:mm:ss.SSS} %thread%5level] %logger{36} - %msg%n)</pattern>
         </encoder>
     </appender>
 
@@ -10,4 +10,5 @@
     </root>
 
     <!--- <logger name="it.unibas.i18n.ResourceManager" level="ERROR"/> -->
+    <!--- <logger name="it.unibas.i18n.App" level="INFO"/> -->
 </configuration>

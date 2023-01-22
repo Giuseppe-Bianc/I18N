@@ -4,6 +4,13 @@ public class Token {
     public enum Type {
         WORD,
         NUMBER,
+        HEXADECIMAL,
+        OCTAL,
+        REAL,
+        NEGATIVE_NUMBER,
+        NEGATIVE_OCTAL,
+        NEGATIVE_HEXADECIMAL,
+        NEGATIVE_REAL,
         SYMBOL
     }
 

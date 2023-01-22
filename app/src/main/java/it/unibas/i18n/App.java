@@ -19,6 +19,9 @@ public class App {
     private static final String PATTERN = "(?<=\\s+|\\W+)|(?=\\s+|\\W+)";
     private static final Splitter splitter = Splitter.onPattern(PATTERN);
     private static List<String> lines = new ArrayList<>();
+    private static List<Token> tokens = new ArrayList<>();
+    private static TokenList tokensL = new TokenList();
+    private static ResourceManager resourceManager  = new ResourceManager();
 
     public static App getInstance() {
         return singleton;
@@ -33,38 +36,156 @@ public class App {
 
     private static Token.Type determineType(String token) {
         if (token.matches("[a-zA-Z]+"))  return Token.Type.WORD;
+        else if (token.matches("0[xX][0-9a-fA-F]+")) return Token.Type.HEXADECIMAL;
+        else if (token.matches("0[0-7]+")) return Token.Type.OCTAL;
         else if (token.matches("[0-9]+")) return Token.Type.NUMBER;
-
         return Token.Type.SYMBOL;
     }
 
     public static void main(String[] args) throws IOException {
-        ResourceManager resourceManager  = new ResourceManager();
-        resourceManager.inizializza();
+        getInstance().inizializza();
         if (args.length != 1){
             logger.error(resourceManager.getStringResource("MessagioUso"));
         } else{
             String filename = args[0];
             lines = readFile(filename);
-
-            /*lines.stream().map(line -> {
-                StringBuilder sb = new StringBuilder();
-                Iterable<String> tokens = splitter.split(line);
-                tokens.forEach(token -> sb.append("tokens : ").append(token).append(System.lineSeparator()));
-                return sb.toString();
-            }).forEach(System.out::println);*/
-            List<Token> tokens = new ArrayList<>();
+            logger.info("inizio smistamento dei token");
             for (int line = 0; line < lines.size(); line++) {
                 int start = 0;
                 Iterable<String> sToken = splitter.split(lines.get(line));
                 for (String token : sToken) {
                     Token.Type type = determineType(token); // metodo per determinare il tipo del token
                     int end = start + token.length();
-                    tokens.add(new Token(type, token, line, start, end));
+                    tokensL.addToken(new Token(type, token, line + 1, start, end));
                     start = end;
                 }
             }
-            tokens.forEach(System.out::println);
+            logger.info("fine smistamento dei token");
+            combineNegativeTokens();
+            combineNegativeOctTokens();
+            combineNegativeHexadecimalTokens();
+            combineRealTokens();
+            tokensL.forEach(System.out::println);
         }
     }
+
+    private void inizializza() {
+        logger.info("inizializza");
+        resourceManager.inizializza();
+    }
+
+    private static void combineRealTokens() {
+        logger.info("combineRealTokens");
+        for (int i = 0; i < tokensL.size() - 2; i++) {
+            Token current = tokensL.get(i);
+            Token next = tokensL.getNextToken(i);
+            Token next2 = tokensL.getTwoTokensAfter(i);
+            i = resolveReal(i, current, next, next2);
+        }
+    }
+    private static void combineNegativeTokens() {
+        logger.info("combineNegativeTokens");
+        for (int i = 0; i < tokensL.size() - 2; i++) {
+            Token current = tokensL.get(i);
+            Token next = tokensL.getNextToken(i);
+            i = resolveNegative(i, current, next);
+        }
+    }
+
+    private static void combineNegativeOctTokens() {
+        logger.info("combineNegativeOctTokens");
+        for (int i = 0; i < tokensL.size() - 2; i++) {
+            Token current = tokensL.get(i);
+            Token next = tokensL.getNextToken(i);
+            i = resolveNegativeOct(i, current, next);
+        }
+    }
+
+    private static void combineNegativeHexadecimalTokens() {
+        logger.info("combineNegativeHexadecimalTokens");
+        for (int i = 0; i < tokensL.size() - 2; i++) {
+            Token current = tokensL.get(i);
+            Token next = tokensL.getNextToken(i);
+            i = resolveNegativeHex(i, current, next);
+        }
+    }
+
+
+    private static int resolveReal(int i, Token current, Token next, Token next2) {
+        if (isThereAReal(current, next, next2)) {
+            Token newToken = new Token(Token.Type.REAL, getTextForTreTok(current, next, next2), current.getLine(), current.getStart(), next2.getEnd());
+            tokensL.getTokens().set(i, newToken);
+            tokensL.getTokens().remove(next);
+            tokensL.getTokens().remove(next2);
+            i--;
+        }
+        if (isThereANegativeReal(current, next, next2)){
+            Token newToken = new Token(Token.Type.NEGATIVE_REAL, getTextForTreTok(current, next, next2), current.getLine(), current.getStart(), next2.getEnd());
+            tokensL.getTokens().set(i, newToken);
+            tokensL.getTokens().remove(next);
+            tokensL.getTokens().remove(next2);
+            i--;
+        }
+        return i;
+    }
+    private static int resolveNegative(int i, Token current, Token next) {
+        if (isThereANegative(current, next)) {
+            Token newToken = new Token(Token.Type.NEGATIVE_NUMBER, getTextForTwoTok(current, next), current.getLine(), current.getStart(), next.getEnd());
+            tokensL.getTokens().set(i, newToken);
+            tokensL.getTokens().remove(next);
+            i--;
+        }
+        return i;
+    }
+    private static int resolveNegativeOct(int i, Token current, Token next) {
+        if (isThereANegativeOct(current, next)) {
+            Token newToken = new Token(Token.Type.NEGATIVE_OCTAL, getTextForTwoTok(current, next), current.getLine(), current.getStart(), next.getEnd());
+            tokensL.getTokens().set(i, newToken);
+            tokensL.getTokens().remove(next);
+            i--;
+        }
+        return i;
+    }
+    private static int resolveNegativeHex(int i, Token current, Token next) {
+        if (isThereANegativeHex(current, next)) {
+            Token newToken = new Token(Token.Type.NEGATIVE_HEXADECIMAL, getTextForTwoTok(current, next), current.getLine(), current.getStart(), next.getEnd());
+            tokensL.getTokens().set(i, newToken);
+            tokensL.getTokens().remove(next);
+            i--;
+        }
+        return i;
+    }
+
+    private static String getTextForTreTok(Token current, Token next, Token next2) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(current.getToken());
+        sb.append(next.getToken());
+        sb.append(next2.getToken());
+        return sb.toString();
+    }
+    private static String getTextForTwoTok(Token current, Token next) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(current.getToken());
+        sb.append(next.getToken());
+        return sb.toString();
+    }
+    private static boolean isThereANegativeHex(Token current, Token next) {
+        return current.getType() == Token.Type.SYMBOL && current.getToken().equals("-") && next.getType() == Token.Type.HEXADECIMAL;
+    }
+    private static boolean isThereANegativeOct(Token current, Token next) {
+        return current.getType() == Token.Type.SYMBOL && current.getToken().equals("-") && next.getType() == Token.Type.OCTAL;
+    }
+    private static boolean isThereANegative(Token current, Token next){
+        return current.getType() == Token.Type.SYMBOL && current.getToken().equals("-") && next.getType() == Token.Type.NUMBER;
+    }
+
+    private static boolean isThereANegativeReal(Token current, Token next, Token next2) {
+        return current.getType() == Token.Type.NEGATIVE_NUMBER && next.getType() == Token.Type.SYMBOL && next.getToken().equals(".")
+                && next2.getType() == Token.Type.NUMBER;
+    }
+    private static boolean isThereAReal(Token current, Token next, Token next2) {
+        return current.getType() == Token.Type.NUMBER && next.getType() == Token.Type.SYMBOL && next.getToken().equals(".")
+                && next2.getType() == Token.Type.NUMBER;
+    }
+
 }
